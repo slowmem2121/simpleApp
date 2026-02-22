@@ -1,4 +1,4 @@
-# School Basic Project
+# Basic Web App Project
 
 ## Installation Instructions
 1. Download the project archive and unpack the `.zip` package.
