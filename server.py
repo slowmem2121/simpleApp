@@ -153,7 +153,7 @@ def login():
         token = create_token(user_id, username)
         resp = jsonify({"success": True, "message": "Login successful!", "token": token})
         max_age = app.config['JWT_EXP_DELTA_SECONDS']
-        resp.set_cookie("token", token, max_age=max_age, httponly=True, samesite='Lax')  # secure=True в prod
+        resp.set_cookie("token", token, max_age=max_age, httponly=True, samesite='Lax')  # secure=True in production with HTTPS
         return resp 
     else:
         return jsonify({"success": False, "message": "Wrong username or password."})
