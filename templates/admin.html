@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Admin</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif; 
+        }
+        #status { margin-top: 20px;  }
+        #controls { margin-top: 20px; }
+        #logoutBtn { margin-top: 20px; padding: 10px 20px; font-size: 16px; }
+        button { cursor: pointer; margin: 5px; }
+        button:hover { background-color: #f0f0f0; }
+        button:active { background-color: #e0e0e0; }
+        #reloadLink:visited { color: blue}
+    </style>
+</head>
+<body>
+    <h1>Admin Panel</h1>
+    <div id="status">Checking permissions...</div>
+    <button id="logoutBtn">Logout</button>
+    <div id="controls" style="display:none;">
+        <div id="users"></div>
+    </div>
+    <script>
+    async function loadUsers() {
+        const res = await fetch('/api/admin/users');
+        if (!res.ok) { document.getElementById('status').innerText = 'Forbidden or not authorized.'; return; }
+        const data = await res.json();
+        const cont = document.getElementById('users');
+        cont.innerHTML = '';
+        data.users.forEach(u => {
+            const div = document.createElement('div');
+            div.innerHTML = `<b>${u.username}</b> (id: ${u.id}) - admin: ${u.is_admin}` +
+                ` <button data-id="${u.id}" class="del">Delete</button>` +
+                ` <button data-id="${u.id}" class="toggle">Toggle Admin</button>` +
+                ` <button data-id="${u.id}" class="pwd">Change Password</button>`;
+            cont.appendChild(div);
+        });
+        document.querySelectorAll('.del').forEach(btn => btn.addEventListener('click', async e => {
+            const id = e.target.dataset.id;
+            if (!confirm('Delete user ' + id + '?')) return;
+            await fetch('/api/admin/users/' + id, {method: 'DELETE'});
+            loadUsers();
+        }));
+        document.querySelectorAll('.toggle').forEach(btn => btn.addEventListener('click', async e => {
+            const id = e.target.dataset.id;
+            const pw = confirm('Toggle admin flag for ' + id + '? (OK = yes, Cancel = no)');
+            if (!pw) return;
+            const is_admin = !data.users.find(u => u.id == id).is_admin;
+            await fetch('/api/admin/users/' + id + '/admin', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({is_admin})});
+            loadUsers();
+        }));
+        document.querySelectorAll('.pwd').forEach(btn => btn.addEventListener('click', async e => {
+            const id = e.target.dataset.id;
+            const pw = prompt('New password for user id ' + id + ' (min 8 chars)');
+            if (!pw) return;
+            await fetch('/api/admin/users/' + id + '/password', {method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({password: pw})});
+            alert('Password changed (if allowed)');
+        }));
+    }
+    (async function() {
+        // ensure user is admin
+        const res = await fetch('/api/me');
+        const info = await res.json();
+        if (!res.ok || !info.success || !info.is_admin) {
+            document.getElementById('status').innerText = 'You are not an admin.';
+            return;
+        }
+        document.getElementById('status').innerText = 'Hello, ' + info.username;
+        document.getElementById('controls').style.display = 'block';
+        loadUsers();
+    })();
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+            localStorage.removeItem("token");
+            try {
+                await fetch("/api/logout", { method: "POST" });
+            } catch (e) {
+                console.error(e);
+            }
+            window.location.href = "/login";
+    });
+    </script>
+</body>
+</html>

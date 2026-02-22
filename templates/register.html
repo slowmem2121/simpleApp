@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Register</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif; 
+        }
+        input { margin: 5px; }
+        #goLogin { display: block; margin-top: 10px;}
+        #registerBtn {margin: 5px; width: 215px; padding: 5px; margin-top: 10px; }
+        #username, #password, #password2 { width: 200px; padding: 5px; }
+        #message { color: red; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Register</h1>
+    <div id="registerForm">
+        <input type="text" id="username" placeholder="username"><br>
+        <input type="password" id="password" placeholder="password"><br>
+        <input type="password" id="password2" placeholder="enter password second time"><br>
+        <button id="registerBtn">Register</button>
+    </div>
+    <a id="message" hidden="true"></a>
+    <a href="/login" id="goLogin">Login</a>
+
+    <script>
+        document.getElementById("registerBtn").addEventListener("click", async () => {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+            const password2 = document.getElementById("password2").value;
+
+            if (password !== password2) {
+                document.getElementById("message").innerText = "Passwords are not matched!";
+                document.getElementById("message").hidden = false;
+                return;
+            }
+
+            const res = await fetch("/api/register", {
+                method: "POST",
+                headers: {"Content-Type":"application/json"},
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await res.json();
+            document.getElementById("message").innerText = data.message || "";
+
+            if (data.success && data.token) {
+                document.getElementById("message").hidden = true;
+                // сохраняем jwt в localStorage
+                localStorage.setItem("token", data.token);
+                window.location.href = "/";
+            }
+            else {
+                document.getElementById("message").hidden = false;
+            }
+        });
+
+        document.getElementById("registerForm").addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                document.getElementById("registerBtn").click();
+            }
+        });
+
+        // Если уже есть токен — идём на главную
+        (function() {
+            if (localStorage.getItem("token")) {
+                window.location.href = "/";
+            }
+        })();
+    </script>
+</body>
+</html>

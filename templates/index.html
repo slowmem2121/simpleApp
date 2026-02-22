@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Main Page</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif; 
+        }
+        #status { margin-top: 20px;  }
+        #logoutBtn { margin-top: 20px; padding: 10px 20px; font-size: 16px; }
+        .img1 { margin-top: 20px; max-width: 300px; }
+        button { cursor: pointer; }
+        button:hover { background-color: #f0f0f0; }
+        button:active { background-color: #e0e0e0; }
+        #reloadLink:visited { color: blue}
+        #links-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        #links-container button {
+            padding: 10px 20px;
+            text-decoration: none;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        #content { 
+            border: black; 
+            padding: 20px; 
+            background-color: rgba(255, 255, 255, 0.9); 
+            border-radius: 10px; width: 400px; 
+            text-align: center; 
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="content">
+        <h1>Main Page</h1>
+        <a id="status">Checking authentication...</a>
+        <div id="links-container">
+            <button id="logoutBtn" style="display:none;">Logout</button>
+            <a href="/" id="reloadLink">Reload Page</a>
+            <a href="https://example.com" target="_blank">https://example.com</a>
+        </div>
+    </div>
+    <script>
+        async function checkAuth() {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                window.location.href = "/login";
+                return;
+            }
+
+            try {
+                const res = await fetch("/api/me", {
+                    method: "GET",
+                    headers: {
+                        "Authorization": "Bearer " + token
+                    }
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    document.getElementById("status").innerText = "Welcome, " + data.username + "!";
+                    document.getElementById("logoutBtn").style.display = "inline-block";
+                } else {
+                    localStorage.removeItem("token");
+                    window.location.href = "/login";
+                }
+            } catch (err) {
+                console.error(err);
+                localStorage.removeItem("token");
+                window.location.href = "/login";
+            }
+        }
+
+        document.getElementById("logoutBtn").addEventListener("click", async () => {
+            localStorage.removeItem("token");
+            try {
+                await fetch("/api/logout", { method: "POST" });
+            } catch (e) {
+                console.error(e);
+            }
+            window.location.href = "/login";
+        });
+
+        checkAuth();
+    </script>
+</body>
+</html>

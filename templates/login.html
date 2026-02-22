@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif; 
+        }
+        input { margin: 5px; }
+        #goLogin { display: block; margin-top: 10px;}
+        #loginBtn {margin: 5px; width: 215px; padding: 5px; margin-top: 10px; }
+        #username, #password { width: 200px; padding: 5px; }
+        #message { color: red; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Login</h1>
+    <input type="text" id="username" placeholder="username">
+    <input type="password" id="password" placeholder="password">
+    <button id="loginBtn">Login</button>
+    <a id="message" hidden="true"></a>
+    <a href="/register" id="goLogin">Register</a>
+    <script>
+        document.getElementById("loginBtn").addEventListener("click", async () => {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            const res = await fetch("/api/login", {
+                method: "POST",
+                headers: {"Content-Type":"application/json"},
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            document.getElementById("message").innerText = data.message || "";
+
+            if (data.success && data.token) {
+                document.getElementById("message").hidden = true;
+                // сохраняем jwt в localStorage
+                localStorage.setItem("token", data.token);
+                window.location.href = "/";
+            }
+            else {
+                document.getElementById("message").hidden = false;
+            }
+        });
+
+        document.getElementById("password").addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                document.getElementById("loginBtn").click();
+            }
+        });
+
+        // Если уже есть токен — идём на главную (проверка на клиенте)
+        (async function() {
+        const token = localStorage.getItem("token");
+        if (!token) return; // нет токена — остаёмся на странице логина
+
+        console.log("Token found — validating with /api/me");
+        try {
+            const res = await fetch("/api/me", {
+                method: "GET",
+                headers: { "Authorization": "Bearer " + token }
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                console.log("Token is valid — setting cookie and redirecting");
+                // quick dev: set cookie so browser will send it on next navigation
+                // (не HttpOnly — в проде лучше отдавать cookie с сервера)
+                document.cookie = "token=" + token + "; path=/; max-age=" + (60*60) + "; samesite=lax";
+                window.location.href = "/";
+            } else {
+                console.warn("Token invalid according to /api/me — clearing storage");
+                localStorage.removeItem("token");
+            }
+        } catch (err) {
+            console.error("Auth check failed:", err);
+            localStorage.removeItem("token");
+        }
+        })();
+    </script>
+</body>
+</html>
+
