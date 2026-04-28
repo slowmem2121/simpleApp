@@ -34,8 +34,8 @@
             const password = document.getElementById("password").value;
             const password2 = document.getElementById("password2").value;
 
-            if (password !== password2) {
-                document.getElementById("message").innerText = "Passwords are not matched!";
+            if (password !== password2 || password === "") {
+                document.getElementById("message").innerText = "Passwords are not matched or empty!";
                 document.getElementById("message").hidden = false;
                 return;
             }
@@ -51,7 +51,6 @@
 
             if (data.success && data.token) {
                 document.getElementById("message").hidden = true;
-                // сохраняем jwt в localStorage
                 localStorage.setItem("token", data.token);
                 window.location.href = "/";
             }
@@ -65,8 +64,6 @@
                 document.getElementById("registerBtn").click();
             }
         });
-
-        // Если уже есть токен — идём на главную
         (function() {
             if (localStorage.getItem("token")) {
                 window.location.href = "/";

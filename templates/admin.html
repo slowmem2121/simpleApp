@@ -64,7 +64,6 @@
         }));
     }
     (async function() {
-        // ensure user is admin
         const res = await fetch('/api/me');
         const info = await res.json();
         if (!res.ok || !info.success || !info.is_admin) {

@@ -39,7 +39,6 @@
 
             if (data.success && data.token) {
                 document.getElementById("message").hidden = true;
-                // сохраняем jwt в localStorage
                 localStorage.setItem("token", data.token);
                 window.location.href = "/";
             }
@@ -53,11 +52,9 @@
                 document.getElementById("loginBtn").click();
             }
         });
-
-        // Если уже есть токен — идём на главную (проверка на клиенте)
         (async function() {
         const token = localStorage.getItem("token");
-        if (!token) return; // нет токена — остаёмся на странице логина
+        if (!token) return;
 
         console.log("Token found — validating with /api/me");
         try {
@@ -68,8 +65,6 @@
             const data = await res.json();
             if (res.ok && data.success) {
                 console.log("Token is valid — setting cookie and redirecting");
-                // quick dev: set cookie so browser will send it on next navigation
-                // (не HttpOnly — в проде лучше отдавать cookie с сервера)
                 document.cookie = "token=" + token + "; path=/; max-age=" + (60*60) + "; samesite=lax";
                 window.location.href = "/";
             } else {

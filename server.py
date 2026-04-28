@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 import sqlite3
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 import time
@@ -37,6 +37,7 @@ def init_db():
         c = conn.cursor()
         c.execute("INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)", 
                   ("admin", generate_password_hash("Admin@123"), 1))
+        conn.execute("PRAGMA journal_mode=WAL;")
         conn.commit()
         conn.close()
 
@@ -48,13 +49,13 @@ def is_valid_password(password: str) -> bool:
     return re.match(pattern, password) is not None
 
 def create_token(user_id: int, username: str):
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     exp = now + timedelta(seconds=app.config['JWT_EXP_DELTA_SECONDS'])
     payload = {
         "sub": username,
         "user_id": user_id,
-        "iat": now,
-        "exp": exp
+        "iat": int(now.timestamp()),
+        "exp": int(exp.timestamp())
     }
     token = jwt.encode(payload, app.config['JWT_SECRET'], algorithm=app.config['JWT_ALGORITHM'])
     if isinstance(token, bytes):
@@ -81,7 +82,6 @@ def get_token_from_header_or_cookie():
 
 
 def check_auth():
-    """Check if user is authenticated and exists in DB. Returns (is_valid, user_id, username, is_admin) or (False, None, None, False)"""
     token = get_token_from_header_or_cookie()
     if not token:
         return False, None, None, False
@@ -91,8 +91,6 @@ def check_auth():
     
     user_id = payload.get("user_id")
     username = payload.get("sub")
-
-    # Verify user still exists in database
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("SELECT is_admin FROM users WHERE id=? AND username=?", (user_id, username))
@@ -121,17 +119,18 @@ def register():
     password_hash = generate_password_hash(password)
 
     try:
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute("INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)", (username, password_hash, 0))
-        conn.commit()
-        user_id = c.lastrowid
-        conn.close()
-
+        with sqlite3.connect(DB_FILE, timeout=5) as conn:
+            c = conn.cursor()
+            c.execute("INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)", (username, password_hash, 0))
+            conn.commit()
+            user_id = c.lastrowid
         token = create_token(user_id, username)
         return jsonify({"success": True, "message": "Registration successful!", "token": token})
     except sqlite3.IntegrityError:
         return jsonify({"success": False, "message": "There is already an account with this username."})
+    except Exception as e:
+        print(e)
+        return jsonify({"success": False, "message": "Internal exception"})
 
 @app.route("/api/login", methods=["POST"])
 def login():
@@ -153,7 +152,7 @@ def login():
         token = create_token(user_id, username)
         resp = jsonify({"success": True, "message": "Login successful!", "token": token})
         max_age = app.config['JWT_EXP_DELTA_SECONDS']
-        resp.set_cookie("token", token, max_age=max_age, httponly=True, samesite='Lax')  # secure=True in production with HTTPS
+        resp.set_cookie("token", token, max_age=max_age, httponly=True, samesite='Lax')
         return resp 
     else:
         return jsonify({"success": False, "message": "Wrong username or password."})
@@ -163,7 +162,6 @@ def logout():
     resp = jsonify({"success": True, "message": "Logged out on server (client should remove token)."})
     resp.set_cookie("token", "", max_age=0, httponly=True, samesite='Lax')
     return resp
-
 
 @app.route("/api/me", methods=["GET"])
 def me():
@@ -270,4 +268,4 @@ def static_files(path):
 
 if __name__ == "__main__":
     init_db()
-    app.run(host="127.0.0.1", port=8080, debug=True)
+    app.run(host="127.0.0.1", port=8080, debug=False)
